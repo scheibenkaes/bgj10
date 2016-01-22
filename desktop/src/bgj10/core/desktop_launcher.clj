@@ -6,5 +6,5 @@
 
 (defn -main
   []
-  (LwjglApplication. bgj10-game "bgj10" 800 600)
+  (LwjglApplication. bgj10-game "bgj10" 640 320)
   (Keyboard/enableRepeatEvents true))
