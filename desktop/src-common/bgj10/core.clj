@@ -17,14 +17,20 @@
            :x 326
            :y 78)))
 
-(defn- move-player [screen {:keys [player? speed] :as entity}]
+(def ^:const player-limit-left 100)
+
+
+(defn- move-player [screen {:keys [player? speed x y] :as entity}]
   (if player?
     (condp = (:key screen)
       (key-code :right)
       (update-in entity [:x] + speed)
 
       (key-code :left)
-      (update-in entity [:x] - speed)
+      (let [new-x (- x speed)]
+        (if (> new-x player-limit-left)
+          (update-in entity [:x] - speed)
+          entity))
 
       entity)
     entity))
