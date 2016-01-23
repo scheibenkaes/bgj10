@@ -7,11 +7,39 @@
   (let [t (texture "Design.png")]
     t))
 
+(defn- create-player []
+  (let [p (shape :filled
+                 :set-color (color :blue)
+                 :rect 0 0 16 24)]
+    (assoc p
+           :player? true
+           :speed 3
+           :x 326
+           :y 78)))
+
+(defn- move-player [screen {:keys [player? speed] :as entity}]
+  (if player?
+    (condp = (:key screen)
+      (key-code :right)
+      (update-in entity [:x] + speed)
+
+      (key-code :left)
+      (update-in entity [:x] - speed)
+
+      entity)
+    entity))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
     (update! screen :renderer (stage))
-    [(load-sketch)])
+    [(load-sketch)
+     (create-player)])
+
+  :on-key-down
+  (fn [screen entities]
+    (->> entities
+         (map (partial #'move-player screen))))
   
   :on-render
   (fn [screen entities]
@@ -40,7 +68,7 @@
                          (try (screen-fn)
                               (catch Exception e
                                 (.printStackTrace e)
-                                (set-screen! bgj10-game blank-screen)))))
+                                (set-screen! bgj10-game error-screen)))))
 
   (do
     (require '[bgj10.core.desktop-launcher :as launcher])
