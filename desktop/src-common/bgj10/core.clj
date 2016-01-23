@@ -14,12 +14,14 @@
       (->> (map texture*))))
 
 (defn- create-fire []
-  (let [t (texture "Fire.png")
+  (let [x 305 y 80
+        t (texture "Fire.png")
         tiles (split-texture t 24)
         burning-bright-anim (animation 0.75 tiles :set-play-mode (play-mode :loop))]
     (assoc t
-           :x 305
-           :y 80
+           :x x
+           :y y
+           :fire? true
            :intensity 1.0
            :anim/burning-bright burning-bright-anim)))
 
@@ -54,6 +56,13 @@
       entity)
     entity))
 
+(defn animate [screen entity]
+  (cond
+    (:fire? entity)
+    (let [frame (animation->texture screen (:anim/burning-bright entity))]
+      (merge entity frame))
+    :else entity))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
@@ -68,7 +77,8 @@
   :on-render
   (fn [screen entities]
     (clear!)
-    (render! screen entities)))
+    (render! screen (->> entities
+                         (map (partial #'animate screen))))))
 
 (defscreen error-screen
   :on-show
