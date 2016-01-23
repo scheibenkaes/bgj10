@@ -13,12 +13,23 @@
       (aget 0)
       (->> (map texture*))))
 
+(def ^:const ui-indicator-max-width 120)
+
+(defn calc-indicator-width [max-width percentage]
+  (-> max-width (/ 100) (* percentage) int))
+
+(defn- create-indicator-filling [width]
+  (let [filling (shape :filled :set-color (color :red) :rect 0 0 width 12)]
+    (assoc filling :x 10 :y 300 :ui/filling-indicator? true :width width)))
+
 (defn- create-fire-indicator []
-  (let [outline (shape :line :set-color (color :red) :rect 0 0 120 12)
-        filling (shape :filled :set-color (color :red) :rect 0 0 111 12)]
+  (let [outline (shape :line :set-color (color :red) :rect 0 0 ui-indicator-max-width 12)
+        filling (create-indicator-filling ui-indicator-max-width)]
     [(assoc outline :x 10 :y 300)
      (assoc filling :x 10 :y 300 :ui/filling-indicator? true)
      (assoc (label "Fire" (color :red)) :x 140 :y 297)]))
+
+(def ^:const fire-burndown-rate 2)
 
 (defn- create-fire []
   (let [x 305 y 80
@@ -30,7 +41,7 @@
            :y y
            :fire? true
            :scale 0.5
-           :intensity 1.0
+           :intensity 100
            :anim/burning-bright burning-bright-anim)))
 
 (defn- create-player []
@@ -71,22 +82,55 @@
       (merge entity frame))
     :else entity))
 
+(defn update-ui [entities]
+  (let [intensity (:intensity (find-first :fire? entities))
+        width (calc-indicator-width ui-indicator-max-width intensity)]
+    (conj (remove :ui/filling-indicator? entities)
+          (create-indicator-filling 220)
+          (label "FFFFF" (color :white)))
+    entities))
+
+(defn- display-fire-status [entities]
+  (let [intensity (:intensity (find-first :fire? entities))
+        width (calc-indicator-width ui-indicator-max-width intensity)]
+    (create-indicator-filling width)))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
     (update! screen :renderer (stage))
+    (add-timer! screen :event/update-ui 1 1)
+    (add-timer! screen :event/tick 1 1)
     [(load-sketch) (create-fire) (create-fire-indicator) (create-player)])
 
   :on-key-down
   (fn [screen entities]
     (->> entities
          (map (partial #'move-player screen))))
+
+  :on-timer
+  (fn [{id :id} entities]
+    (case id
+        :event/update-ui
+        (let [fire (find-first :fire? entities)
+              e1 (remove :ui/filling-indicator? entities)
+              i (create-indicator-filling (calc-indicator-width ui-indicator-max-width (:intensity fire)))
+              e (conj (vec e1) i)]
+          e)
+        :event/tick
+        (mapv (fn [e]
+                (if (:fire? e)
+                  (update e :intensity (fn [i]
+                                         (let [new-i (- i fire-burndown-rate)]
+                                           (if (neg? new-i) 0 new-i))))
+                  e)) entities)
+      ))
   
   :on-render
   (fn [screen entities]
     (clear!)
-    (render! screen (->> entities
-                         (map (partial #'animate screen))))))
+    (let [animated (map (partial #'animate screen) entities)]
+      (render! screen animated))))
 
 (defscreen error-screen
   :on-show
@@ -112,17 +156,19 @@
                                 (.printStackTrace e)
                                 (set-screen! bgj10-game error-screen)))))
 
-  ;; (fset 'reset-to-main-screen
-  ;;    [?\C-s ?R ?E ?S ?E ?T ?\S-  ?T ?O return ?\C-n ?\C-e ?\C-x ?\C-e ?\C-u ?\C- ])
+  ;; (fset 'reset-to-main-screen [?\C-s ?R ?E ?S ?E ?T ?\S-  ?T ?O return ?\C-n ?\C-e ?\C-x ?\C-e ?\C-u ?\C- ])
 
   
   (do
     (require '[bgj10.core.desktop-launcher :as launcher])
     (launcher/-main))
   
-  (require '[play-clj.repl :as repl])
 
   ;; RESET TO MAIN SCREEN  
   (on-gl (set-screen! bgj10-game main-screen))
+
+  (require '[play-clj.repl :as repl])
   
-  (repl/e main-screen))
+  (repl/e main-screen)
+
+  )
