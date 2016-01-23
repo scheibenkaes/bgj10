@@ -5,6 +5,7 @@
 
 (defn load-sketch []
   (let [t (texture "Design.png")]
+    (println "load")
     t))
 
 (defn- split-texture [t width]
@@ -82,14 +83,6 @@
       (merge entity frame))
     :else entity))
 
-(defn update-ui [entities]
-  (let [intensity (:intensity (find-first :fire? entities))
-        width (calc-indicator-width ui-indicator-max-width intensity)]
-    (conj (remove :ui/filling-indicator? entities)
-          (create-indicator-filling 220)
-          (label "FFFFF" (color :white)))
-    entities))
-
 (defn- display-fire-status [entities]
   (let [intensity (:intensity (find-first :fire? entities))
         width (calc-indicator-width ui-indicator-max-width intensity)]
@@ -101,7 +94,7 @@
     (update! screen :renderer (stage))
     (add-timer! screen :event/update-ui 1 1)
     (add-timer! screen :event/tick 1 1)
-    [(load-sketch) (create-fire) (create-fire-indicator) (create-player)])
+    [(create-fire) (create-fire-indicator) (create-player)])
 
   :on-key-down
   (fn [screen entities]
@@ -123,12 +116,10 @@
                   (update e :intensity (fn [i]
                                          (let [new-i (- i fire-burndown-rate)]
                                            (if (neg? new-i) 0 new-i))))
-                  e)) entities)
-      ))
+                  e)) entities)))
   
   :on-render
   (fn [screen entities]
-    (clear!)
     (let [animated (map (partial #'animate screen) entities)]
       (render! screen animated))))
 
@@ -143,10 +134,21 @@
     (clear!)
     (render! screen entities)))
 
+(defscreen background-screen
+  :on-show
+  (fn [screen entities]
+    (update! screen :renderer (stage))
+    [(load-sketch)])
+
+  :on-render
+  (fn [screen entities]
+    (clear!)
+    (render! screen entities)))
+
 (defgame bgj10-game
   :on-create
   (fn [this]
-    (set-screen! this main-screen)))
+    (set-screen! this background-screen main-screen)))
 
 
 (comment
@@ -165,7 +167,7 @@
   
 
   ;; RESET TO MAIN SCREEN  
-  (on-gl (set-screen! bgj10-game main-screen))
+  (on-gl (set-screen! bgj10-game background-screen main-screen))
 
   (require '[play-clj.repl :as repl])
   
