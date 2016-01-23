@@ -7,6 +7,22 @@
   (let [t (texture "Design.png")]
     t))
 
+(defn- split-texture [t width]
+  (-> t
+      (texture! :split width (texture! t :get-region-height))
+      (aget 0)
+      (->> (map texture*))))
+
+(defn- create-fire []
+  (let [t (texture "Fire.png")
+        tiles (split-texture t 24)
+        burning-bright-anim (animation 0.75 tiles :set-play-mode (play-mode :loop))]
+    (assoc t
+           :x 305
+           :y 80
+           :intensity 1.0
+           :anim/burning-bright burning-bright-anim)))
+
 (defn- create-player []
   (let [p (shape :filled
                  :set-color (color :blue)
@@ -42,8 +58,7 @@
   :on-show
   (fn [screen entities]
     (update! screen :renderer (stage))
-    [(load-sketch)
-     (create-player)])
+    [(load-sketch) (create-fire) (create-player)])
 
   :on-key-down
   (fn [screen entities]
@@ -79,8 +94,8 @@
                                 (.printStackTrace e)
                                 (set-screen! bgj10-game error-screen)))))
 
-  #_(fset 'reset-to-main-screen
-   [?\C-s ?R ?E ?S ?E ?T ?\S-  ?T ?O return ?\C-n ?\C-e ?\C-x ?\C-e ?\C-u ?\C- ])
+  ;; (fset 'reset-to-main-screen
+  ;;    [?\C-s ?R ?E ?S ?E ?T ?\S-  ?T ?O return ?\C-n ?\C-e ?\C-x ?\C-e ?\C-u ?\C- ])
 
   
   (do
