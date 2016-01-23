@@ -13,15 +13,23 @@
       (aget 0)
       (->> (map texture*))))
 
+(defn- create-fire-indicator []
+  (let [outline (shape :line :set-color (color :red) :rect 0 0 120 12)
+        filling (shape :filled :set-color (color :red) :rect 0 0 111 12)]
+    [(assoc outline :x 10 :y 300)
+     (assoc filling :x 10 :y 300 :ui/filling-indicator? true)
+     (assoc (label "Fire" (color :red)) :x 140 :y 297)]))
+
 (defn- create-fire []
   (let [x 305 y 80
         t (texture "Fire.png")
         tiles (split-texture t 24)
-        burning-bright-anim (animation 0.75 tiles :set-play-mode (play-mode :loop))]
+        burning-bright-anim (animation 0.8 tiles :set-play-mode (play-mode :loop))]
     (assoc t
            :x x
            :y y
            :fire? true
+           :scale 0.5
            :intensity 1.0
            :anim/burning-bright burning-bright-anim)))
 
@@ -67,7 +75,7 @@
   :on-show
   (fn [screen entities]
     (update! screen :renderer (stage))
-    [(load-sketch) (create-fire) (create-player)])
+    [(load-sketch) (create-fire) (create-fire-indicator) (create-player)])
 
   :on-key-down
   (fn [screen entities]
