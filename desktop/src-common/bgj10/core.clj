@@ -79,12 +79,17 @@
                                 (.printStackTrace e)
                                 (set-screen! bgj10-game error-screen)))))
 
+  #_(fset 'reset-to-main-screen
+   [?\C-s ?R ?E ?S ?E ?T ?\S-  ?T ?O return ?\C-n ?\C-e ?\C-x ?\C-e ?\C-u ?\C- ])
+
+  
   (do
     (require '[bgj10.core.desktop-launcher :as launcher])
     (launcher/-main))
   
   (require '[play-clj.repl :as repl])
-  
+
+  ;; RESET TO MAIN SCREEN  
   (on-gl (set-screen! bgj10-game main-screen))
   
   (repl/e main-screen))
