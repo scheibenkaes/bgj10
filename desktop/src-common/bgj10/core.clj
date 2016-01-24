@@ -45,6 +45,14 @@
            :intensity 100
            :anim/burning-bright burning-bright-anim)))
 
+(defn- create-woods []
+  (let [t (shape :line :set-color (color :green)
+                 :rect 0 0 24 55)]
+    (assoc t
+           :x 510
+           :y 78
+           :woods/bounding-box? true)))
+
 (defn- create-player []
   (let [p (shape :filled
                  :set-color (color :blue)
@@ -94,7 +102,10 @@
     (update! screen :renderer (stage))
     (add-timer! screen :event/update-ui 1 1)
     (add-timer! screen :event/tick 1 1)
-    [(create-fire) (create-fire-indicator) (create-player)])
+    [(create-fire)
+     (create-fire-indicator)
+     (create-player)
+     (create-woods)])
 
   :on-key-down
   (fn [screen entities]
