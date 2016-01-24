@@ -37,7 +37,7 @@
   (let [x 305 y 80
         t (texture "Fire.png")
         tiles (split-texture t 24)
-        burning-bright-anim (animation 0.8 tiles :set-play-mode (play-mode :loop))]
+        burning-bright-anim (animation 0.2 tiles :set-play-mode (play-mode :loop))]
     [(assoc t
              :x x
              :y y
@@ -47,7 +47,8 @@
              :anim/burning-bright burning-bright-anim)
      (assoc (shape :line :set-color (color :green) :rect 0 0 48 48)
             :fire-bounding-box? true
-            :x (- x 10) :y (- y 3))]))
+            :x (- x 10) :y (- y 3)
+            :w 48 :h 48)]))
 
 (defn- create-woods []
   (let [[w h] [24 55]
@@ -73,11 +74,15 @@
            :y 78
            :w w :h h)))
 
+(defn create-rectangle [e]
+  (let [{x-e :x y-e :y w-e :w h-e :h} e]
+    (rectangle x-e y-e w-e h-e)))
+
 (defn- player-in-woods? [entities]
-  (let [{x-p :x y-p :y w-p :w h-p :h} (find-first :player? entities)
-        {x-w :x y-w :y w-w :w h-w :h} (find-first :woods/bounding-box? entities)
-        r-p (rectangle x-p y-p w-p h-p)
-        r-w (rectangle x-w y-w w-w h-w)]
+  (let [p (find-first :player? entities)
+        w (find-first :woods/bounding-box? entities)
+        r-p (create-rectangle p)
+        r-w (create-rectangle w)]
     (rectangle! r-p :overlaps r-w)))
 
 (def ^:const player-limit-left 100)
@@ -135,6 +140,26 @@
              e)
            e)) entities))
 
+(defn player-at-fire? [entities]
+  (let [player (find-first :player? entities)
+        fire (find-first :fire-bounding-box? entities)
+        r-player (create-rectangle player)
+        r-fire (create-rectangle fire)]
+    (rectangle! r-fire :overlaps r-player)))
+
+(def ^:const wood-factor 14)
+
+(defn drop-wood-at-fire [entities]
+  (when (->> entities (find-first :player?) :wood pos?)
+    (map (fn [{:keys [player? fire?] :as e}]
+           (cond
+             player?
+             (update e :wood #(if (zero? %) 0 (dec %)))
+             fire?
+             (update e :intensity #(let [n (+ % wood-factor)]
+                                     (if (> n 100) 100 n)))
+             :else e)) entities)))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
@@ -150,16 +175,26 @@
   :on-key-down
   (fn [screen entities]
     (remove-timer! screen :event/in-woods)
+    (remove-timer! screen :event/at-fire)
     (->> entities
          (map (partial #'move-player screen))))
 
   :on-key-up
   (fn [{:keys [key] :as screen} entities]
-    (when(= key (key-code :right))
+    (cond
+      (= key (key-code :right))
       (when (player-in-woods? entities)
         (println "Player in woods, starting chopping timer")
-        (add-timer! screen :event/in-woods 1)))
-    nil)
+        (add-timer! screen :event/in-woods 1)
+        nil)
+      
+      (= key (key-code :left))
+      (when (player-at-fire? entities)
+        (println "Burn Baby Burn!")
+        (add-timer! screen :event/at-fire 1)
+        nil)
+      )
+    )
   
   :on-timer
   (fn [{id :id :as screen} entities]
@@ -176,6 +211,12 @@
           (println "I'm a lumberjack..")
           (add-timer! screen :event/in-woods 1)
           (player-chopped-wood entities))
+
+        :event/at-fire
+        (do
+          (println "Adding to fire")
+          (add-timer! screen :event/at-fire 1)
+          (drop-wood-at-fire entities))
         
         :event/tick
         (mapv (fn [e]
