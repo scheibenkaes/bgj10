@@ -2,7 +2,8 @@
   (:require [play-clj.core :refer :all]
             [play-clj.g2d :refer :all]
             [play-clj.math :refer :all]
-            [play-clj.ui :refer :all]))
+            [play-clj.ui :refer :all]
+            [clj-time.core :as t]))
 
 (defn load-sketch []
   (let [t (texture "Design.png")]
@@ -80,7 +81,8 @@
         s (shape :filled
                  :set-color (color :yellow)
                  :rect 0 0 w h)]
-    (assoc s :x x :y y :w w :h h :uncle? true :state :uncle/stitting)))
+    (assoc s :x x :y y :w w :h h :uncle? true :mood :satisfied
+           :last-smoke (t/now))))
 
 (defn create-rectangle [e]
   (let [{x-e :x y-e :y w-e :w h-e :h} e]
@@ -205,12 +207,50 @@
       (game-over!)
       entities)))
 
+(def ^:const uncle-interval 3)
+
+(defn- last-smoke-too-far-in-past? [{:keys [last-smoke] :as e} seconds]
+  (let [next-smoke (t/plus last-smoke (t/seconds seconds))
+        now (t/now)]
+    (t/after? now next-smoke)))
+
+(defn update-uncle-mood
+  "Update uncles state"
+  [entities]
+  (map (fn [{:keys [uncle? mood last-smoke] :as e}]
+         (if uncle?
+           (case mood
+             :satisfied
+             (if (last-smoke-too-far-in-past? e uncle-interval)
+               (do
+                 (println "UNCLE NEEDS A SMOKE!! He's not amused")
+                 (assoc e :mood :needs-a-smoke))
+               e)
+             :needs-a-smoke
+             (if (last-smoke-too-far-in-past? e (* 2 uncle-interval))
+               (do
+                 (println "UNCLE NOW IS PISSED!!")
+                 (assoc e :mood :pissed))
+               e)
+             e)
+           e)) entities))
+
+(defn move-uncle [entities]
+  (map (fn [{:keys [uncle? mood] :as e}]
+         (if uncle?
+           (case mood
+             :pissed
+             (update e :x inc)
+             e)
+           e)) entities))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
     (update! screen :renderer (stage))
     (add-timer! screen :event/update-ui 1 1)
     (add-timer! screen :event/tick 1 1)
+    (add-timer! screen :event/uncle-check-smoke uncle-interval uncle-interval)
     [(create-fire)
      (create-fire-indicator)
      (create-wood-indicator)
@@ -227,20 +267,15 @@
 
   :on-key-up
   (fn [{:keys [key] :as screen} entities]
-    (cond
-      (= key (key-code :right))
+    (when (or (= key (key-code :left))
+              (= key (key-code :right)))
       (when (player-in-woods? entities)
-        (println "Player in woods, starting chopping timer")
-        (add-timer! screen :event/in-woods 1)
-        nil)
-      
-      (= key (key-code :left))
+          (println "Player in woods, starting chopping timer")
+          (add-timer! screen :event/in-woods 1))
       (when (player-at-fire? entities)
         (println "Burn Baby Burn!")
-        (add-timer! screen :event/at-fire 1)
-        nil)
-      )
-    )
+        (add-timer! screen :event/at-fire 1))
+      nil))
   
   :on-timer
   (fn [{id :id :as screen} entities]
@@ -264,6 +299,10 @@
         (do
           (add-timer! screen :event/at-fire 1)
           (drop-wood-at-fire entities))
+
+        :event/uncle-check-smoke
+        (do
+          (update-uncle-mood entities))
         
         :event/tick
         (mapv (fn [e]
@@ -277,8 +316,11 @@
   :on-render
   (fn [screen entities]
     (check-for-game-over entities)
-    (let [animated (->> entities
-                        (map (partial #'animate screen))
+    (let [anim-fn (fn [xs]
+                    (animate screen xs))
+          animated (->> entities
+                        move-uncle
+                        (map anim-fn)
                         update-ui)]
       (render! screen animated))))
 
