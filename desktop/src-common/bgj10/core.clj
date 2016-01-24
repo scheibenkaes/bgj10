@@ -151,6 +151,7 @@
 
 (defn drop-wood-at-fire [entities]
   (when (->> entities (find-first :player?) :wood pos?)
+    (println "Whoosh!")
     (map (fn [{:keys [player? fire?] :as e}]
            (cond
              player?
@@ -208,15 +209,14 @@
 
         :event/in-woods
         (do
-          (println "I'm a lumberjack..")
           (when (< (->> entities (find-first :player?) :wood) max-wood)
+            (println "I'm a lumberjack..")
             (sound "Hit.wav" :play))
           (add-timer! screen :event/in-woods 1)
           (player-chopped-wood entities))
 
         :event/at-fire
         (do
-          (println "Adding to fire")
           (add-timer! screen :event/at-fire 1)
           (drop-wood-at-fire entities))
         
