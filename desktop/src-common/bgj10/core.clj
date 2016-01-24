@@ -161,6 +161,42 @@
                                      (if (> n 100) 100 n)))
              :else e)) entities)))
 
+(declare bgj10-game main-screen background-screen game-over-screen)
+
+(defn restart-game []
+  (on-gl (set-screen! bgj10-game background-screen main-screen)))
+
+(defscreen game-over-screen
+  :on-show
+  (fn [screen entities]
+    (update! screen :renderer (stage))
+    [(assoc (label (str "GAME OVER!!1!\nThe wolves got you!"
+                        "\nPress R to play again") (color :red)
+                   :set-alignment (align :center))
+            :x (- (/ (width screen) 2) 60)
+            :y (/ (height screen) 2))])
+
+  :on-key-down
+  (fn [{:keys [key] :as screen} entities]
+    (cond
+      (= key (key-code :r))
+      (restart-game)
+      :else nil))
+  
+  :on-render
+  (fn [screen entities]
+    (clear!)
+    (render! screen entities)))
+
+(defn- game-over! []
+  (on-gl (set-screen! bgj10-game game-over-screen)))
+
+(defn check-for-game-over [entities]
+  (let [{:keys [intensity]} (find-first :fire? entities)]
+    (if (zero? intensity)
+      (game-over!)
+      entities)))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
@@ -222,14 +258,16 @@
         
         :event/tick
         (mapv (fn [e]
-                (if (:fire? e)
+                (cond
+                  (:fire? e)
                   (update e :intensity (fn [i]
                                          (let [new-i (- i fire-burndown-rate)]
                                            (if (neg? new-i) 0 new-i))))
-                  e)) entities)))
+                  :else e)) entities)))
   
   :on-render
   (fn [screen entities]
+    (check-for-game-over entities)
     (let [animated (->> entities
                         (map (partial #'animate screen))
                         update-ui)]
@@ -280,6 +318,7 @@
 
   ;; RESET TO MAIN SCREEN  
   (on-gl (set-screen! bgj10-game background-screen main-screen))
+  (on-gl (set-screen! bgj10-game game-over-screen))
 
   (require '[play-clj.repl :as repl])
   
