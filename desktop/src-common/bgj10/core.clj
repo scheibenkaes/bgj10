@@ -1,6 +1,7 @@
 (ns bgj10.core
   (:require [play-clj.core :refer :all]
             [play-clj.g2d :refer :all]
+            [play-clj.math :refer :all]
             [play-clj.ui :refer :all]))
 
 (defn load-sketch []
@@ -46,22 +47,35 @@
            :anim/burning-bright burning-bright-anim)))
 
 (defn- create-woods []
-  (let [t (shape :line :set-color (color :green)
-                 :rect 0 0 24 55)]
+  (let [[w h] [24 55]
+        t (shape :line :set-color (color :green)
+                 :rect 0 0 w h)]
     (assoc t
-           :x 510
-           :y 78
+           :x 510 :y 78
+           :w w :h h
            :woods/bounding-box? true)))
 
+(def ^:const max-wood 5)
+
 (defn- create-player []
-  (let [p (shape :filled
+  (let [[w h] [16 24]
+        p (shape :filled
                  :set-color (color :blue)
-                 :rect 0 0 16 24)]
+                 :rect 0 0 w h)]
     (assoc p
            :player? true
            :speed 3
+           :wood 0
            :x 326
-           :y 78)))
+           :y 78
+           :w w :h h)))
+
+(defn- player-in-woods? [entities]
+  (let [{x-p :x y-p :y w-p :w h-p :h} (find-first :player? entities)
+        {x-w :x y-w :y w-w :w h-w :h} (find-first :woods/bounding-box? entities)
+        r-p (rectangle x-p y-p w-p h-p)
+        r-w (rectangle x-w y-w w-w h-w)]
+    (rectangle! r-p :overlaps r-w)))
 
 (def ^:const player-limit-left 100)
 (def ^:const player-limit-right 520)
@@ -96,6 +110,12 @@
         width (calc-indicator-width ui-indicator-max-width intensity)]
     (create-indicator-filling width)))
 
+(defn- player-chopped-wood [entities]
+  (map (fn [{:keys [player? wood] :as e}]
+         (if player?
+           (update e :wood #(if (>= % max-wood) max-wood (inc %)))
+           e)) entities))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
@@ -109,11 +129,20 @@
 
   :on-key-down
   (fn [screen entities]
+    (remove-timer! screen :event/in-woods)
     (->> entities
          (map (partial #'move-player screen))))
 
+  :on-key-up
+  (fn [{:keys [key] :as screen} entities]
+    (when(= key (key-code :right))
+      (when (player-in-woods? entities)
+        (println "Player in woods, starting chopping timer")
+        (add-timer! screen :event/in-woods 1)))
+    nil)
+  
   :on-timer
-  (fn [{id :id} entities]
+  (fn [{id :id :as screen} entities]
     (case id
         :event/update-ui
         (let [fire (find-first :fire? entities)
@@ -121,6 +150,13 @@
               i (create-indicator-filling (calc-indicator-width ui-indicator-max-width (:intensity fire)))
               e (conj (vec e1) i)]
           e)
+
+        :event/in-woods
+        (do
+          (println "I'm a lumberjack..")
+          (add-timer! screen :event/in-woods 1)
+          (player-chopped-wood entities))
+        
         :event/tick
         (mapv (fn [e]
                 (if (:fire? e)
