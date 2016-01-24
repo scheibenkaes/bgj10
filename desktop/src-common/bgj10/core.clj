@@ -74,6 +74,14 @@
            :y 78
            :w w :h h)))
 
+(defn create-uncle []
+  (let [[x y] [125 78]
+        [w h] [16 24]
+        s (shape :filled
+                 :set-color (color :yellow)
+                 :rect 0 0 w h)]
+    (assoc s :x x :y y :w w :h h :uncle? true :state :uncle/stitting)))
+
 (defn create-rectangle [e]
   (let [{x-e :x y-e :y w-e :w h-e :h} e]
     (rectangle x-e y-e w-e h-e)))
@@ -206,6 +214,7 @@
     [(create-fire)
      (create-fire-indicator)
      (create-wood-indicator)
+     (create-uncle)
      (create-player)
      (create-woods)])
 
