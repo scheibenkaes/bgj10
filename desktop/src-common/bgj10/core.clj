@@ -116,6 +116,22 @@
            (update e :wood #(if (>= % max-wood) max-wood (inc %)))
            e)) entities))
 
+(defn- create-wood-indicator []
+  (let [s "%d   Wood"
+        l (label (format s 0) (color :brown))]
+    (assoc l
+           :x 120 :y 277
+           :wood-label? true
+           :template s)))
+
+(defn update-ui [entities]
+  (map (fn [{:keys [wood-label? template] :as e}]
+         (if wood-label?
+           (let [{wood :wood} (find-first :player? entities)]
+             (label! e :set-text (format template wood))
+             e)
+           e)) entities))
+
 (defscreen main-screen
   :on-show
   (fn [screen entities]
@@ -124,6 +140,7 @@
     (add-timer! screen :event/tick 1 1)
     [(create-fire)
      (create-fire-indicator)
+     (create-wood-indicator)
      (create-player)
      (create-woods)])
 
@@ -167,7 +184,9 @@
   
   :on-render
   (fn [screen entities]
-    (let [animated (map (partial #'animate screen) entities)]
+    (let [animated (->> entities
+                        (map (partial #'animate screen))
+                        update-ui)]
       (render! screen animated))))
 
 (defscreen error-screen
