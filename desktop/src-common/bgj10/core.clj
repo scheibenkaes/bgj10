@@ -38,13 +38,16 @@
         t (texture "Fire.png")
         tiles (split-texture t 24)
         burning-bright-anim (animation 0.8 tiles :set-play-mode (play-mode :loop))]
-    (assoc t
-           :x x
-           :y y
-           :fire? true
-           :scale 0.5
-           :intensity 100
-           :anim/burning-bright burning-bright-anim)))
+    [(assoc t
+             :x x
+             :y y
+             :fire? true
+             :scale 0.5
+             :intensity 100
+             :anim/burning-bright burning-bright-anim)
+     (assoc (shape :line :set-color (color :green) :rect 0 0 48 48)
+            :fire-bounding-box? true
+            :x (- x 10) :y (- y 3))]))
 
 (defn- create-woods []
   (let [[w h] [24 55]
