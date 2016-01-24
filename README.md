@@ -1,6 +1,14 @@
 ## Introduction
 
-A play-clj game in which ... well, that part is up to you.
+You are living in the wilderness of Arizona together with your uncle.
+If living with the nagging chap would not be enough, you're also surrounded by hungry wolves.
+In order to keep them away you have to make sure your fire is burning.
+
+But thankfully you have your trusty Pipe Tomahawk!
+It is more than just a weapon.
+It allows you to chop wood for the fire and it can be used as a pipe.
+By sitting down and having a smoke with your uncle, you can keep him entertained.
+And you better do unless you want the old man to fumble with your fire!
 
 ## Contents
 
