@@ -9,6 +9,7 @@ It is more than just a weapon.
 It allows you to chop wood for the fire and it can be used as a pipe.
 By sitting down and having a smoke with your uncle, you can keep him entertained.
 And you better do unless you want the old man to fumble with your fire!
+Sure he only wants to help, but he was never good with keeping a fire burning...
 
 ## Contents
 

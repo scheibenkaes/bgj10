@@ -75,14 +75,23 @@
            :y 78
            :w w :h h)))
 
+(def uncle-start 125)
+
 (defn create-uncle []
-  (let [[x y] [125 78]
+  (let [[x y] [uncle-start 78]
         [w h] [16 24]
         s (shape :filled
                  :set-color (color :yellow)
-                 :rect 0 0 w h)]
-    (assoc s :x x :y y :w w :h h :uncle? true :mood :satisfied
-           :last-smoke (t/now))))
+                 :rect 0 0 w h)
+        t (texture "UncleMood.png")
+        [happy meh sad] (split-texture t 24)]
+    [(assoc happy :mood-indicator? true
+            :happy happy :needs-a-smoke meh :pissed sad
+            :x 110 :y 250)
+     (assoc (label "Uncle mood" (color :yellow))
+            :x 140 :y 250)
+     (assoc s :x x :y y :w w :h h :uncle? true :mood :satisfied
+            :last-smoke (t/now))]))
 
 (defn create-rectangle [e]
   (let [{x-e :x y-e :y w-e :w h-e :h} e]
@@ -121,6 +130,7 @@
     (:fire? entity)
     (let [frame (animation->texture screen (:anim/burning-bright entity))]
       (merge entity frame))
+    
     :else entity))
 
 (defn- display-fire-status [entities]
@@ -150,8 +160,8 @@
              e)
            e)) entities))
 
-(defn player-at-fire? [entities]
-  (let [player (find-first :player? entities)
+(defn entity-at-fire? [entity entities]
+  (let [player entity
         fire (find-first :fire-bounding-box? entities)
         r-player (create-rectangle player)
         r-fire (create-rectangle fire)]
@@ -207,7 +217,7 @@
       (game-over!)
       entities)))
 
-(def ^:const uncle-interval 3)
+(def ^:const uncle-interval 6)
 
 (defn- last-smoke-too-far-in-past? [{:keys [last-smoke] :as e} seconds]
   (let [next-smoke (t/plus last-smoke (t/seconds seconds))
@@ -236,13 +246,42 @@
            e)) entities))
 
 (defn move-uncle [entities]
-  (map (fn [{:keys [uncle? mood] :as e}]
+  (map (fn [{:keys [uncle? mood x] :as e}]
          (if uncle?
            (case mood
              :pissed
-             (update e :x inc)
+             (if-not (entity-at-fire? e entities)
+               (update e :x inc)
+               e)
+             :needs-a-smoke
+             (if-not (= x uncle-start)
+               (update e :x dec)
+               e)
              e)
            e)) entities))
+
+(defn show-mood [entities]
+  (map (fn [{:keys [mood-indicator?] :as e}]
+         (if mood-indicator?
+           (let [{mood :mood} (find-first :uncle? entities)]
+             (merge e (get e mood)))
+           e)) entities))
+
+(defn interact-with-uncle [screen entities]
+  (map (fn [{:keys [uncle?] :as e}]
+         (if uncle?
+           (let [player (find-first :player? entities)
+                 both-at-fire? (and (entity-at-fire? e entities)
+                                    (entity-at-fire? player entities))]
+             (if both-at-fire?
+               (do
+                 (remove-timer! screen :event/uncle-check-smoke)
+                 (add-timer! screen :event/uncle-check-smoke uncle-interval uncle-interval)
+
+                 (assoc e :mood :needs-a-smoke))
+               e))
+           e)
+         ) entities))
 
 (defscreen main-screen
   :on-show
@@ -272,7 +311,7 @@
       (when (player-in-woods? entities)
           (println "Player in woods, starting chopping timer")
           (add-timer! screen :event/in-woods 1))
-      (when (player-at-fire? entities)
+      (when (entity-at-fire? (find-first :player? entities) entities)
         (println "Burn Baby Burn!")
         (add-timer! screen :event/at-fire 1))
       nil))
@@ -308,9 +347,12 @@
         (mapv (fn [e]
                 (cond
                   (:fire? e)
-                  (update e :intensity (fn [i]
-                                         (let [new-i (- i fire-burndown-rate)]
-                                           (if (neg? new-i) 0 new-i))))
+                  (let [uncle (find-first :uncle? entities)
+                        at-fire? (entity-at-fire? uncle entities)
+                        rate (if at-fire? 2 1)]
+                    (update e :intensity (fn [i]
+                                           (let [new-i (- i (* fire-burndown-rate rate))]
+                                             (if (neg? new-i) 0 new-i)))))                  
                   :else e)) entities)))
   
   :on-render
@@ -318,8 +360,11 @@
     (check-for-game-over entities)
     (let [anim-fn (fn [xs]
                     (animate screen xs))
+          interact-fn (partial interact-with-uncle screen)
           animated (->> entities
                         move-uncle
+                        show-mood
+                        interact-fn
                         (map anim-fn)
                         update-ui)]
       (render! screen animated))))
